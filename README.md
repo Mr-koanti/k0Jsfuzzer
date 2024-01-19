@@ -8,5 +8,5 @@ pip install -r requirements.txt
 ```
 for using :
 ```bash
-python k0active.py -u https://uber.com -o urls.txt
+python k0active.py -u https://hackerone.com -o urls.txt
 ```
