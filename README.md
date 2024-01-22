@@ -12,5 +12,6 @@ python k0active.py -u https://hackerone.com -o urls.txt
 -u crawl single url
 -l crawling list of URLs
 -o output
+-jp  just paths  it will extract the paths that are found in javascript  
 
 ```
