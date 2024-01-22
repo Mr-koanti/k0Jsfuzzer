@@ -56,7 +56,7 @@ def extract_paths_from_js(js_content):
     filtered_paths = [path.strip('"\'') for path in paths if not path.startswith('//') and path != '/']
     return filtered_paths
 
-def process_js_url(base_url, js_url, output_file, processed_urls, excluded_extensions):
+def process_js_url(base_url, js_url, output_file, processed_urls, excluded_extensions, just_paths):
     if js_url not in processed_urls:
         processed_urls.add(js_url)
         js_content = download_js_file(js_url)
@@ -65,10 +65,10 @@ def process_js_url(base_url, js_url, output_file, processed_urls, excluded_exten
             if paths:
                 with open(output_file, 'a') as f:
                     for path in paths:
-                        full_url = urljoin(base_url, path)
-                        if is_valid_url(full_url, excluded_extensions):
-                            f.write(full_url + '\n')
-                            print(Fore.GREEN + full_url)  # Green color for valid URLs
+                        result = path if just_paths else urljoin(base_url, path)
+                        if is_valid_url(result, excluded_extensions):
+                            f.write(result + '\n')
+                            print(Fore.GREEN + result)  # Green color for valid paths/URLs
             else:
                 # Omit the logging message for "No relevant paths found"
                 pass
@@ -76,7 +76,7 @@ def process_js_url(base_url, js_url, output_file, processed_urls, excluded_exten
             # Omit the logging message for "Failed to download the JavaScript file"
             pass
 
-def process_url_list(file_path, output_file, excluded_extensions):
+def process_url_list(file_path, output_file, excluded_extensions, just_paths):
     processed_urls = set()
 
     with open(file_path, 'r') as file:
@@ -90,7 +90,7 @@ def process_url_list(file_path, output_file, excluded_extensions):
                 if result:
                     base_url, js_urls = result
                     for js_url in js_urls:
-                        futures.append(executor.submit(process_js_url, base_url, js_url, output_file, processed_urls, excluded_extensions))
+                        futures.append(executor.submit(process_js_url, base_url, js_url, output_file, processed_urls, excluded_extensions, just_paths))
             for future in futures:
                 future.result()
     else:
@@ -103,6 +103,7 @@ def main():
     parser.add_argument("-u", "--url", help="URL to analyze")
     parser.add_argument("-l", "--list", help="File containing a list of URLs to analyze")
     parser.add_argument("-o", "--output", help="Output file to save the URLs", default="output.txt")
+    parser.add_argument("-jp", "--just-paths", action="store_true", help="Extract just paths instead of full URLs")
     args = parser.parse_args()
 
     excluded_extensions = ['js', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg']
@@ -113,12 +114,12 @@ def main():
             base_url, js_urls = result
             with ThreadPoolExecutor(max_workers=5) as executor:
                 for js_url in js_urls:
-                    executor.submit(process_js_url, base_url, js_url, args.output, set(), excluded_extensions)
+                    executor.submit(process_js_url, base_url, js_url, args.output, set(), excluded_extensions, args.just_paths)
         else:
             logging.info("No JavaScript source URLs found.")
 
     elif args.list:
-        process_url_list(args.list, args.output, excluded_extensions)
+        process_url_list(args.list, args.output, excluded_extensions, args.just_paths)
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(message)s', level=logging.INFO)  # Set the desired log level and remove INFO:root:
