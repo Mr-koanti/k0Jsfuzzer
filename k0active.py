@@ -7,13 +7,21 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import argparse
 from colorama import init, Fore, Style
+import urllib3
 
 init(autoreset=True)  # Initialize colorama
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)  # Disable SSL warnings
 
 def fetch_js_urls(url):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=10)
+        # Specify a custom user agent
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+
+        # Disable SSL verification and suppress warnings (not recommended for production)
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        response = requests.get(url, headers=headers, timeout=10, verify=False)
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -30,8 +38,13 @@ def fetch_js_urls(url):
 
 def download_js_file(url):
     try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-        response = requests.get(url, headers=headers, timeout=10)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+
+        # Disable SSL verification and suppress warnings (not recommended for production)
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        response = requests.get(url, headers=headers, timeout=10, verify=False)
 
         # Raise an HTTPError for bad responses (4xx and 5xx status codes)
         response.raise_for_status()
@@ -48,7 +61,7 @@ def is_valid_url(url, excluded_extensions):
     parsed_url = urlparse(url)
     path = parsed_url.path
     extension = path.split('.')[-1].lower()
-    
+
     return extension not in excluded_extensions
 
 def extract_paths_from_js(js_content):
