@@ -1,4 +1,4 @@
-# k0Jsfuzzer
+# Jsfuzzer
 Tool for finding links from client-side code:
 
 installation :
@@ -8,7 +8,7 @@ pip install -r requirements.txt
 ```
 for using :
 ```bash
-python k0active.py -u https://hackerone.com -o urls.txt
+python jsfuzz.py -u https://hackerone.com -o urls.txt
 -u crawl single url
 -l crawling list of URLs
 -o output
