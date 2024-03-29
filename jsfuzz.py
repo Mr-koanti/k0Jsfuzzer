@@ -7,21 +7,13 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 import argparse
 from colorama import init, Fore, Style
-import urllib3
 
 init(autoreset=True)  # Initialize colorama
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)  # Disable SSL warnings
 
 def fetch_js_urls(url):
     try:
-        # Specify a custom user agent
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-
-        # Disable SSL verification and suppress warnings (not recommended for production)
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        response = requests.get(url, headers=headers, timeout=10, verify=False)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -31,20 +23,13 @@ def fetch_js_urls(url):
             return base_url, js_urls
         else:
             logging.error(f"Error: Unable to fetch the URL {url} (Status Code: {response.status_code})")
-            return None
     except Exception as e:
         logging.error(f"Error fetching {url}: {e}")
-        return None
 
 def download_js_file(url):
     try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-
-        # Disable SSL verification and suppress warnings (not recommended for production)
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        response = requests.get(url, headers=headers, timeout=10, verify=False)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+        response = requests.get(url, headers=headers, timeout=10)
 
         # Raise an HTTPError for bad responses (4xx and 5xx status codes)
         response.raise_for_status()
@@ -69,7 +54,7 @@ def extract_paths_from_js(js_content):
     filtered_paths = [path.strip('"\'') for path in paths if not path.startswith('//') and path != '/']
     return filtered_paths
 
-def process_js_url(base_url, js_url, output_file, processed_urls, excluded_extensions, just_paths):
+def process_js_url(base_url, js_url, output_file, processed_urls, excluded_extensions):
     if js_url not in processed_urls:
         processed_urls.add(js_url)
         js_content = download_js_file(js_url)
@@ -78,10 +63,10 @@ def process_js_url(base_url, js_url, output_file, processed_urls, excluded_exten
             if paths:
                 with open(output_file, 'a') as f:
                     for path in paths:
-                        result = path if just_paths else urljoin(base_url, path)
-                        if is_valid_url(result, excluded_extensions):
-                            f.write(result + '\n')
-                            print(Fore.GREEN + result)  # Green color for valid paths/URLs
+                        full_url = urljoin(base_url, path)
+                        if is_valid_url(full_url, excluded_extensions):
+                            f.write(full_url + '\n')
+                            print(Fore.GREEN + full_url)  # Green color for valid URLs
             else:
                 # Omit the logging message for "No relevant paths found"
                 pass
@@ -89,7 +74,7 @@ def process_js_url(base_url, js_url, output_file, processed_urls, excluded_exten
             # Omit the logging message for "Failed to download the JavaScript file"
             pass
 
-def process_url_list(file_path, output_file, excluded_extensions, just_paths):
+def process_url_list(file_path, output_file, excluded_extensions):
     processed_urls = set()
 
     with open(file_path, 'r') as file:
@@ -99,11 +84,10 @@ def process_url_list(file_path, output_file, excluded_extensions, just_paths):
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = []
             for url in urls:
-                result = fetch_js_urls(url)
-                if result:
-                    base_url, js_urls = result
+                base_url, js_urls = fetch_js_urls(url)
+                if js_urls:
                     for js_url in js_urls:
-                        futures.append(executor.submit(process_js_url, base_url, js_url, output_file, processed_urls, excluded_extensions, just_paths))
+                        futures.append(executor.submit(process_js_url, base_url, js_url, output_file, processed_urls, excluded_extensions))
             for future in futures:
                 future.result()
     else:
@@ -116,23 +100,21 @@ def main():
     parser.add_argument("-u", "--url", help="URL to analyze")
     parser.add_argument("-l", "--list", help="File containing a list of URLs to analyze")
     parser.add_argument("-o", "--output", help="Output file to save the URLs", default="output.txt")
-    parser.add_argument("-jp", "--just-paths", action="store_true", help="Extract just paths instead of full URLs")
     args = parser.parse_args()
 
     excluded_extensions = ['js', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg']
 
     if args.url:
-        result = fetch_js_urls(args.url)
-        if result:
-            base_url, js_urls = result
+        base_url, js_urls = fetch_js_urls(args.url)
+        if js_urls:
             with ThreadPoolExecutor(max_workers=5) as executor:
                 for js_url in js_urls:
-                    executor.submit(process_js_url, base_url, js_url, args.output, set(), excluded_extensions, args.just_paths)
+                    executor.submit(process_js_url, base_url, js_url, args.output, set(), excluded_extensions)
         else:
             logging.info("No JavaScript source URLs found.")
 
     elif args.list:
-        process_url_list(args.list, args.output, excluded_extensions, args.just_paths)
+        process_url_list(args.list, args.output, excluded_extensions)
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(message)s', level=logging.INFO)  # Set the desired log level and remove INFO:root:
